@@ -566,6 +566,7 @@
                     <div class="tab active" data-tab="dependencies">Dependencies</div>
                     <div class="tab" data-tab="downloads">Downloads</div>
                     <div class="tab" data-tab="install">Installation</div>
+                    <div class="tab" data-tab="environment">Virtual Environment</div>
                 </div>
                 <div class="tab-content">
                     <div id="dependenciesTab" class="tab-pane active">
@@ -590,6 +591,53 @@
                         <div class="clipboard-area" id="installCommand">pip install --no-index --find-links=./wheels package-name</div>
                         <button id="copyCommandBtn" class="btn">Copy Command</button>
                     </div>
+                    
+                    <div id="environmentTab" class="tab-pane" style="display: none;">
+                        <h3>Virtual Environment Setup</h3>
+                        <div class="card">
+                            <h4>Create New Virtual Environment</h4>
+                            <div class="form-group">
+                                <label for="venvName">Environment Name</label>
+                                <input type="text" id="venvName" value="venv" placeholder="Name of your virtual environment">
+                                <div class="help-text">Name of the virtual environment folder (e.g., venv, env, .venv)</div>
+                            </div>
+                            <div class="form-group">
+                                <label for="venvLocation">Environment Location</label>
+                                <div class="path-input">
+                                    <input type="text" id="venvLocation" value="." placeholder="Directory for the virtual environment">
+                                    <button type="button" id="browseVenvLocation" class="btn btn-secondary">Browse</button>
+                                </div>
+                                <div class="help-text">Directory where the virtual environment will be created (default: current directory)</div>
+                            </div>
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="useSystemSitePackages">
+                                <label for="useSystemSitePackages">Use system site packages</label>
+                            </div>
+                            <div class="buttons-row">
+                                <button type="button" id="createVenvBtn" class="btn">Create Virtual Environment</button>
+                                <button type="button" id="testVenvBtn" class="btn btn-secondary">Verify Environment</button>
+                            </div>
+                            <div id="venvStatus" class="status" style="display: none;"></div>
+                        </div>
+                        
+                        <div class="card" style="margin-top: 1rem;">
+                            <h4>Activation Commands</h4>
+                            <div class="info-box">
+                                <p>To activate your virtual environment, run the appropriate command for your platform:</p>
+                            </div>
+                            <h5>Windows</h5>
+                            <div class="clipboard-area" id="windowsActivationCommand">venv\Scripts\activate</div>
+                            <button id="copyWindowsActivationBtn" class="btn btn-secondary">Copy</button>
+                            
+                            <h5>macOS/Linux</h5>
+                            <div class="clipboard-area" id="unixActivationCommand">source venv/bin/activate</div>
+                            <button id="copyUnixActivationBtn" class="btn btn-secondary">Copy</button>
+                            
+                            <h5>Installation in Virtual Environment</h5>
+                            <div class="clipboard-area" id="venvInstallCommand">pip install --no-index --find-links=./wheels package-name</div>
+                            <button id="copyVenvInstallBtn" class="btn">Copy</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -609,6 +657,52 @@
             <div class="buttons-row">
                 <button id="confirmPathBtn" class="btn">Set Directory</button>
                 <button id="cancelPathBtn" class="btn btn-secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Virtual Environment path modal -->
+    <div id="venvPathModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Select Virtual Environment Location</h3>
+                <button class="close-modal" id="closeVenvPathModal">&times;</button>
+            </div>
+            <p>Enter the directory where you want to create the virtual environment:</p>
+            <div class="form-group">
+                <input type="text" id="customVenvPath" placeholder="e.g., . (current directory) or C:\Projects\my-project">
+            </div>
+            <div class="buttons-row">
+                <button id="confirmVenvPathBtn" class="btn">Set Directory</button>
+                <button id="cancelVenvPathBtn" class="btn btn-secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Virtual Environment command modal -->
+    <div id="venvCommandModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Virtual Environment Commands</h3>
+                <button class="close-modal" id="closeVenvCommandModal">&times;</button>
+            </div>
+            <div class="form-group">
+                <label>To create a virtual environment, run:</label>
+                <div class="clipboard-area" id="createVenvCommand">python -m venv venv</div>
+                <button id="copyCreateVenvCommandBtn" class="btn btn-secondary">Copy</button>
+            </div>
+            <div class="form-group">
+                <label>To activate the environment on Windows:</label>
+                <div class="clipboard-area" id="activateVenvWindowsCommand">venv\Scripts\activate</div>
+                <button id="copyActivateVenvWindowsBtn" class="btn btn-secondary">Copy</button>
+            </div>
+            <div class="form-group">
+                <label>To activate the environment on macOS/Linux:</label>
+                <div class="clipboard-area" id="activateVenvUnixCommand">source venv/bin/activate</div>
+                <button id="copyActivateVenvUnixBtn" class="btn btn-secondary">Copy</button>
+            </div>
+            <div class="buttons-row">
+                <button id="closeVenvCommandModalBtn" class="btn">Close</button>
             </div>
         </div>
     </div>
@@ -638,6 +732,12 @@
                 createDirIfMissing: true,
                 downloadingFiles: false,
                 processingComplete: false,
+                // Virtual environment settings
+                venvName: 'venv',
+                venvLocation: '.',
+                useSystemSitePackages: false,
+                venvCreated: false,
+                // Popular packages
                 popularPackages: [
                     'numpy', 'pandas', 'matplotlib', 'scikit-learn', 'tensorflow', 'torch', 'django',
                     'flask', 'requests', 'beautifulsoup4', 'scipy', 'pillow', 'pytest', 'selenium',
@@ -684,6 +784,38 @@
             const confirmPathBtn = document.getElementById('confirmPathBtn');
             const cancelPathBtn = document.getElementById('cancelPathBtn');
             const closePathModalBtn = document.getElementById('closePathModal');
+            
+            // Virtual environment elements
+            const venvNameInput = document.getElementById('venvName');
+            const venvLocationInput = document.getElementById('venvLocation');
+            const useSystemSitePackagesCheck = document.getElementById('useSystemSitePackages');
+            const browseVenvLocationBtn = document.getElementById('browseVenvLocation');
+            const createVenvBtn = document.getElementById('createVenvBtn');
+            const testVenvBtn = document.getElementById('testVenvBtn');
+            const venvStatusEl = document.getElementById('venvStatus');
+            const windowsActivationCommand = document.getElementById('windowsActivationCommand');
+            const unixActivationCommand = document.getElementById('unixActivationCommand');
+            const venvInstallCommand = document.getElementById('venvInstallCommand');
+            const copyWindowsActivationBtn = document.getElementById('copyWindowsActivationBtn');
+            const copyUnixActivationBtn = document.getElementById('copyUnixActivationBtn');
+            const copyVenvInstallBtn = document.getElementById('copyVenvInstallBtn');
+            
+            // Virtual environment modal elements
+            const venvPathModal = document.getElementById('venvPathModal');
+            const customVenvPathInput = document.getElementById('customVenvPath');
+            const confirmVenvPathBtn = document.getElementById('confirmVenvPathBtn');
+            const cancelVenvPathBtn = document.getElementById('cancelVenvPathBtn');
+            const closeVenvPathModalBtn = document.getElementById('closeVenvPathModal');
+            
+            const venvCommandModal = document.getElementById('venvCommandModal');
+            const createVenvCommand = document.getElementById('createVenvCommand');
+            const activateVenvWindowsCommand = document.getElementById('activateVenvWindowsCommand');
+            const activateVenvUnixCommand = document.getElementById('activateVenvUnixCommand');
+            const copyCreateVenvCommandBtn = document.getElementById('copyCreateVenvCommandBtn');
+            const copyActivateVenvWindowsBtn = document.getElementById('copyActivateVenvWindowsBtn');
+            const copyActivateVenvUnixBtn = document.getElementById('copyActivateVenvUnixBtn');
+            const closeVenvCommandModalBtn = document.getElementById('closeVenvCommandModalBtn');
+            const closeVenvCommandModal = document.getElementById('closeVenvCommandModal');
 
             // Initialize theme based on user preference
             initTheme();
@@ -961,6 +1093,11 @@
                     installDir: installDirInput.value,
                     sequentialDownload: sequentialDownloadCheck.checked,
                     createDirIfMissing: createDirIfMissingCheck.checked,
+                    // Virtual environment settings
+                    venvName: venvNameInput.value,
+                    venvLocation: venvLocationInput.value,
+                    useSystemSitePackages: useSystemSitePackagesCheck.checked,
+                    // Theme
                     theme: document.documentElement.getAttribute('data-theme') || 'light'
                 };
                 
@@ -974,7 +1111,8 @@
             // Auto-save on change
             [packageNameInput, packageUrlInput, installDirInput, 
              sequentialDownloadCheck, createDirIfMissingCheck,
-             maxDependencyDepthInput, maxPackageCountInput].forEach(el => {
+             maxDependencyDepthInput, maxPackageCountInput,
+             venvNameInput, venvLocationInput, useSystemSitePackagesCheck].forEach(el => {
                 el.addEventListener('change', saveCurrentConfig);
             });
             
@@ -998,7 +1136,18 @@
                     state.installDir = installDirInput.value;
                     state.sequentialDownload = sequentialDownloadCheck.checked;
                     state.createDirIfMissing = createDirIfMissingCheck.checked;
+                    
+                    // Virtual environment settings
+                    if (config.venvName) venvNameInput.value = config.venvName;
+                    if (config.venvLocation) venvLocationInput.value = config.venvLocation;
+                    useSystemSitePackagesCheck.checked = config.useSystemSitePackages || false;
+                    state.venvName = venvNameInput.value;
+                    state.venvLocation = venvLocationInput.value;
+                    state.useSystemSitePackages = useSystemSitePackagesCheck.checked;
+                    
+                    // Update UI
                     updateInstallDirUI();
+                    updateVenvCommandsUI();
                     
                     if (config.packageSource) {
                         packageSource.value = config.packageSource;
@@ -2070,6 +2219,7 @@
                 
                 // Update installation command and directory
                 updateInstallDirUI();
+                updateVenvCommandsUI();
                 
                 // Show download button if we have files to download
                 if (state.downloadUrls.length > 0) {
@@ -2162,6 +2312,159 @@
             
             // Update install directory UI on load
             updateInstallDirUI();
+            
+            // Virtual environment functions
+            function updateVenvCommandsUI() {
+                const venvPath = state.venvLocation === '.' ? state.venvName : 
+                                `${state.venvLocation}/${state.venvName}`.replace(/\/+/g, '/');
+                
+                // Update commands with the current venv path
+                const venvWindowsPath = venvPath.replace(/\//g, '\\');
+                windowsActivationCommand.textContent = `${venvWindowsPath}\\Scripts\\activate`;
+                unixActivationCommand.textContent = `source ${venvPath}/bin/activate`;
+                
+                // Create command with system site packages flag if needed
+                let createCommand = `python -m venv`;
+                if (state.useSystemSitePackages) {
+                    createCommand += ` --system-site-packages`;
+                }
+                createCommand += ` ${state.venvName}`;
+                createVenvCommand.textContent = createCommand;
+                
+                // Update installation command
+                venvInstallCommand.textContent = 
+                    `pip install --no-index --find-links=./${state.installDir} ${state.packageName || 'package-name'}`;
+                
+                // Update modal commands
+                activateVenvWindowsCommand.textContent = windowsActivationCommand.textContent;
+                activateVenvUnixCommand.textContent = unixActivationCommand.textContent;
+            }
+            
+            // Show venv path selection modal
+            function showVenvPathModal() {
+                customVenvPathInput.value = state.venvLocation;
+                venvPathModal.style.display = 'flex';
+            }
+            
+            function hideVenvPathModal() {
+                venvPathModal.style.display = 'none';
+            }
+            
+            // Show venv command modal
+            function showVenvCommandModal() {
+                updateVenvCommandsUI();
+                venvCommandModal.style.display = 'flex';
+            }
+            
+            function hideVenvCommandModal() {
+                venvCommandModal.style.display = 'none';
+            }
+            
+            // Show venv status message
+            function showVenvStatus(message, type = 'info') {
+                venvStatusEl.textContent = message;
+                venvStatusEl.className = `status status-${type}`;
+                venvStatusEl.style.display = 'block';
+                
+                // Hide after 5 seconds
+                setTimeout(() => {
+                    venvStatusEl.style.display = 'none';
+                }, 5000);
+            }
+            
+            // Event listeners for virtual environment
+            venvNameInput.addEventListener('input', function() {
+                state.venvName = this.value.trim() || 'venv';
+                updateVenvCommandsUI();
+            });
+            
+            venvLocationInput.addEventListener('input', function() {
+                state.venvLocation = this.value.trim() || '.';
+                updateVenvCommandsUI();
+            });
+            
+            useSystemSitePackagesCheck.addEventListener('change', function() {
+                state.useSystemSitePackages = this.checked;
+                updateVenvCommandsUI();
+            });
+            
+            // Browse venv location button
+            browseVenvLocationBtn.addEventListener('click', function() {
+                showVenvPathModal();
+            });
+            
+            // Venv path modal buttons
+            closeVenvPathModalBtn.addEventListener('click', hideVenvPathModal);
+            cancelVenvPathBtn.addEventListener('click', hideVenvPathModal);
+            
+            confirmVenvPathBtn.addEventListener('click', function() {
+                const newPath = customVenvPathInput.value.trim();
+                if (newPath) {
+                    state.venvLocation = newPath;
+                    venvLocationInput.value = newPath;
+                    updateVenvCommandsUI();
+                    showVenvStatus(`Virtual environment location updated to: ${newPath}`, 'success');
+                    hideVenvPathModal();
+                } else {
+                    showVenvStatus('Please enter a valid directory path', 'error');
+                }
+            });
+            
+            // Create venv button
+            createVenvBtn.addEventListener('click', function() {
+                showVenvCommandModal();
+            });
+            
+            // Test venv button
+            testVenvBtn.addEventListener('click', function() {
+                showVenvStatus('Use the provided commands to check your virtual environment manually', 'info');
+                showVenvCommandModal();
+            });
+            
+            // Venv command modal buttons
+            closeVenvCommandModal.addEventListener('click', hideVenvCommandModal);
+            closeVenvCommandModalBtn.addEventListener('click', hideVenvCommandModal);
+            
+            // Copy venv commands
+            copyCreateVenvCommandBtn.addEventListener('click', function() {
+                navigator.clipboard.writeText(createVenvCommand.textContent)
+                    .then(() => showVenvStatus('Command copied to clipboard!', 'success'))
+                    .catch(() => showVenvStatus('Failed to copy command', 'error'));
+            });
+            
+            copyActivateVenvWindowsBtn.addEventListener('click', function() {
+                navigator.clipboard.writeText(activateVenvWindowsCommand.textContent)
+                    .then(() => showVenvStatus('Command copied to clipboard!', 'success'))
+                    .catch(() => showVenvStatus('Failed to copy command', 'error'));
+            });
+            
+            copyActivateVenvUnixBtn.addEventListener('click', function() {
+                navigator.clipboard.writeText(activateVenvUnixCommand.textContent)
+                    .then(() => showVenvStatus('Command copied to clipboard!', 'success'))
+                    .catch(() => showVenvStatus('Failed to copy command', 'error'));
+            });
+            
+            // Copy venv commands from the environment tab
+            copyWindowsActivationBtn.addEventListener('click', function() {
+                navigator.clipboard.writeText(windowsActivationCommand.textContent)
+                    .then(() => showVenvStatus('Command copied to clipboard!', 'success'))
+                    .catch(() => showVenvStatus('Failed to copy command', 'error'));
+            });
+            
+            copyUnixActivationBtn.addEventListener('click', function() {
+                navigator.clipboard.writeText(unixActivationCommand.textContent)
+                    .then(() => showVenvStatus('Command copied to clipboard!', 'success'))
+                    .catch(() => showVenvStatus('Failed to copy command', 'error'));
+            });
+            
+            copyVenvInstallBtn.addEventListener('click', function() {
+                navigator.clipboard.writeText(venvInstallCommand.textContent)
+                    .then(() => showVenvStatus('Command copied to clipboard!', 'success'))
+                    .catch(() => showVenvStatus('Failed to copy command', 'error'));
+            });
+            
+            // Initialize the venv UI
+            updateVenvCommandsUI();
             
             // Save theme changes
             themeToggleBtn.addEventListener('click', saveCurrentConfig);
